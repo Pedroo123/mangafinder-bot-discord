@@ -1,0 +1,31 @@
+{
+  "name": "mangafinder-bot-discord",
+  "version": "1.0.0",
+  "description": "Pick a name, and it will scrap through reddit to find it",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pedroo123/mangafinder-bot-discord.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Pedroo123/mangafinder-bot-discord/issues"
+  },
+  "homepage": "https://github.com/Pedroo123/mangafinder-bot-discord#readme",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "discord-interactions": "^4.4.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "snoowrap": "^1.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.2"
+  }
+}
