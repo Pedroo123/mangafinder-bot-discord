@@ -1,0 +1,5 @@
+discord.py
+asyncpraw
+python-dotenv
+pytest
+pytest-asyncio
