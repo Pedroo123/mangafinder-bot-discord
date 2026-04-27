@@ -28,7 +28,7 @@ class RedditService:
         if not query:
             raise ValueError("query is required")
 
-        subreddit = await self.reddit.subreddit(subreddit_name)
+        subreddit = self.reddit.subreddit(subreddit_name)
 
         # AsyncPRAW search doesn't have an 'after' parameter directly in search()
         # but we can use the listing generator.

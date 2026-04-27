@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 from dotenv import load_dotenv
-from reddit_service import RedditService
+from service.reddit_service import RedditService
 
 load_dotenv()
 
@@ -17,27 +17,30 @@ reddit_service = RedditService()
 def format_manga_embed(post: dict) -> discord.Embed:
     """
     Formats a Reddit post into a Discord Embed card.
+    Strictly includes: Title, Date, Front Page (image), and Link.
     """
     title = post.get('title', 'No Title')
     url = post.get('permalink', post.get('url', ''))
     created_utc = post.get('created_utc')
     date_str = "Unknown Date"
     if created_utc:
-        date_str = datetime.fromtimestamp(created_utc).strftime('%Y-%m-%d %H:%M:%S')
+        # Using a cleaner date format
+        date_str = datetime.fromtimestamp(created_utc).strftime('%B %d, %Y')
 
     embed = discord.Embed(
-        title=title[:256], # Discord limit
+        title=title[:256],
         url=url,
-        description=f"Posted on: {date_str}",
-        color=discord.Color.blue()
+        color=discord.Color.orange() # Reddit-ish color
     )
+
+    embed.add_field(name="Date", value=date_str, inline=False)
 
     thumbnail = post.get('thumbnail')
     if thumbnail:
         embed.set_image(url=thumbnail)
 
-    embed.add_field(name="Subreddit", value=f"r/{post.get('subreddit')}", inline=True)
-    embed.add_field(name="Author", value=post.get('author'), inline=True)
+    # Adding a footer with the link as well for clarity
+    embed.set_footer(text=f"Source: r/{post.get('subreddit', 'reddit')}")
 
     return embed
 
