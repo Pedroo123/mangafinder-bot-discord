@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from src.reddit_service import RedditService
+from service.reddit_service import RedditService
 
 @pytest.fixture
 def mock_reddit_env():
@@ -50,7 +50,7 @@ async def test_search_subreddit_success(mock_reddit_env):
         }
 
         mock_subreddit = MagicMock()
-        mock_reddit.subreddit = AsyncMock(return_value=mock_subreddit)
+        mock_reddit.subreddit = MagicMock(return_value=mock_subreddit)
 
         # search() is NOT a coroutine, it returns a generator
         mock_subreddit.search.return_value = AsyncIterator([mock_submission])
@@ -73,7 +73,7 @@ async def test_search_subreddit_no_results(mock_reddit_env):
         service = RedditService()
 
         mock_subreddit = MagicMock()
-        mock_reddit.subreddit = AsyncMock(return_value=mock_subreddit)
+        mock_reddit.subreddit = MagicMock(return_value=mock_subreddit)
         mock_subreddit.search.return_value = AsyncIterator([])
 
         result = await service.search_subreddit("manga", "nonexistent")
