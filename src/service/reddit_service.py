@@ -23,48 +23,57 @@ class RedditService:
         sort: str = "new",
         after: Optional[str] = None
     ) -> Dict[str, Any]:
-        if not subreddit_name:
-            raise ValueError("subreddit_name is required")
-        if not query:
-            raise ValueError("query is required")
+        """
+        Searches for posts in a specific subreddit with input validation and error handling.
+        """
+        if not subreddit_name or not isinstance(subreddit_name, str):
+            raise ValueError("A valid subreddit_name (string) is required")
+        if not query or not isinstance(query, str):
+            raise ValueError("A valid query (string) is required")
 
-        subreddit = self.reddit.subreddit(subreddit_name)
+        try:
+            # Note: reddit.subreddit() in asyncpraw is not a coroutine, so we don't await it.
+            # It just returns a Subreddit object.
+            subreddit = self.reddit.subreddit(subreddit_name)
 
-        # AsyncPRAW search doesn't have an 'after' parameter directly in search()
-        # but we can use the listing generator.
-        # restrict_sr=True is equivalent to searching within the subreddit.
-        search_results = subreddit.search(
-            query,
-            sort=sort,
-            limit=limit,
-            time_filter="all",
-            params={"after": after} if after else None
-        )
+            # AsyncPRAW search returns an AsyncListingGenerator.
+            search_results = subreddit.search(
+                query,
+                sort=sort,
+                limit=limit,
+                time_filter="all",
+                params={"after": after} if after else None
+            )
 
-        posts = []
-        last_fullname = None
+            posts = []
+            last_fullname = None
 
-        async for submission in search_results:
-            # Replicating the mapping logic from TS
-            post = {
-                "id": submission.id,
-                "title": submission.title,
-                "url": submission.url,
-                "permalink": f"https://reddit.com{submission.permalink}" if submission.permalink else None,
-                "author": str(submission.author) if submission.author else None,
-                "created_utc": submission.created_utc,
-                "score": submission.score,
-                "num_comments": submission.num_comments,
-                "subreddit": str(submission.subreddit),
-                "thumbnail": self._get_best_image(submission)
+            async for submission in search_results:
+                # Replicating the mapping logic from TS
+                post = {
+                    "id": submission.id,
+                    "title": submission.title,
+                    "url": submission.url,
+                    "permalink": f"https://reddit.com{submission.permalink}" if submission.permalink else None,
+                    "author": str(submission.author) if submission.author else None,
+                    "created_utc": submission.created_utc,
+                    "score": submission.score,
+                    "num_comments": submission.num_comments,
+                    "subreddit": str(submission.subreddit),
+                    "thumbnail": self._get_best_image(submission)
+                }
+                posts.append(post)
+                last_fullname = submission.name
+
+            return {
+                "posts": posts,
+                "after": last_fullname # In PRAW, we use the fullname for the next 'after'
             }
-            posts.append(post)
-            last_fullname = submission.name
 
-        return {
-            "posts": posts,
-            "after": last_fullname # In PRAW, we use the fullname for the next 'after'
-        }
+        except Exception as e:
+            # Handle potential API errors (timeouts, rate limits, invalid subreddits)
+            print(f"Error searching subreddit r/{subreddit_name}: {str(e)}")
+            raise e
 
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
