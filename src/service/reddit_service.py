@@ -1,19 +1,22 @@
-import os
 import asyncpraw
-from typing import List, Optional, Dict, Any
-from dotenv import load_dotenv
-
-load_dotenv()
+import html
+from typing import Optional, Dict, Any
+from config import Config
 
 class RedditService:
     def __init__(self):
-        self.reddit = asyncpraw.Reddit(
-            client_id=os.getenv("REDDIT_CLIENT_ID"),
-            client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
-            username=os.getenv("REDDIT_USERNAME"),
-            password=os.getenv("REDDIT_PASSWORD"),
-            user_agent=os.getenv("REDDIT_USER_AGENT", "mangafinder-bot/0.1 by Brankksss")
-        )
+        self._reddit: Optional[asyncpraw.Reddit] = None
+
+    def get_reddit(self) -> asyncpraw.Reddit:
+        if self._reddit is None:
+            self._reddit = asyncpraw.Reddit(
+                client_id=Config.REDDIT_CLIENT_ID,
+                client_secret=Config.REDDIT_CLIENT_SECRET,
+                username=Config.REDDIT_USERNAME,
+                password=Config.REDDIT_PASSWORD,
+                user_agent=Config.REDDIT_USER_AGENT
+            )
+        return self._reddit
 
     async def search_subreddit(
         self,
@@ -28,11 +31,9 @@ class RedditService:
         if not query:
             raise ValueError("query is required")
 
-        subreddit = self.reddit.subreddit(subreddit_name)
+        reddit = self.get_reddit()
+        subreddit = reddit.subreddit(subreddit_name)
 
-        # AsyncPRAW search doesn't have an 'after' parameter directly in search()
-        # but we can use the listing generator.
-        # restrict_sr=True is equivalent to searching within the subreddit.
         search_results = subreddit.search(
             query,
             sort=sort,
@@ -45,7 +46,6 @@ class RedditService:
         last_fullname = None
 
         async for submission in search_results:
-            # Replicating the mapping logic from TS
             post = {
                 "id": submission.id,
                 "title": submission.title,
@@ -63,23 +63,28 @@ class RedditService:
 
         return {
             "posts": posts,
-            "after": last_fullname # In PRAW, we use the fullname for the next 'after'
+            "after": last_fullname
         }
 
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
         Attempts to find the best image URL for the submission.
+        Follows a fallback logic: Preview -> Direct Link -> Thumbnail.
         """
-        # 1. Try preview images (often high res)
+        # 1. Try high-resolution preview
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
-                return submission.preview['images'][0]['source']['url']
-            except (IndexError, KeyError):
+                images = submission.preview['images']
+                if images:
+                    source = images[0].get('source')
+                    if source:
+                            return html.unescape(source.get('url'))
+            except (IndexError, AttributeError):
                 pass
 
-        # 2. If it's a direct image link
+        # 2. Direct image link check
         url = getattr(submission, 'url', '')
-        if url.endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+        if url and any(url.lower().endswith(ext) for ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
         # 3. Fallback to thumbnail
@@ -90,4 +95,6 @@ class RedditService:
         return None
 
     async def close(self):
-        await self.reddit.close()
+        if self._reddit:
+            await self._reddit.close()
+            self._reddit = None

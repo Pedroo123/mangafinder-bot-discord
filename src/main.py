@@ -1,11 +1,15 @@
-import os
 import discord
 from discord.ext import commands
 from datetime import datetime
-from dotenv import load_dotenv
+from config import Config
 from service.reddit_service import RedditService
 
-load_dotenv()
+# Validate configuration on startup
+try:
+    Config.validate()
+except ValueError as e:
+    print(f"Configuration Error: {e}")
+    exit(1)
 
 # Intents are required for discord.py >= 2.0
 intents = discord.Intents.default()
@@ -22,25 +26,27 @@ def format_manga_embed(post: dict) -> discord.Embed:
     title = post.get('title', 'No Title')
     url = post.get('permalink', post.get('url', ''))
     created_utc = post.get('created_utc')
+
+    # Format date as requested: %B %d, %Y
     date_str = "Unknown Date"
     if created_utc:
-        # Using a cleaner date format
         date_str = datetime.fromtimestamp(created_utc).strftime('%B %d, %Y')
 
     embed = discord.Embed(
         title=title[:256],
         url=url,
-        color=discord.Color.orange() # Reddit-ish color
+        color=discord.Color.blue()
     )
 
     embed.add_field(name="Date", value=date_str, inline=False)
 
-    thumbnail = post.get('thumbnail')
-    if thumbnail:
-        embed.set_image(url=thumbnail)
+    image_url = post.get('thumbnail')
+    if image_url:
+        embed.set_image(url=image_url)
 
-    # Adding a footer with the link as well for clarity
-    embed.set_footer(text=f"Source: r/{post.get('subreddit', 'reddit')}")
+    # Required: Link for redirect is already in the title and can be added as a field or footer
+    # We'll add it as a field for extra visibility if requested, but title URL is standard.
+    embed.add_field(name="Link", value=f"[Click here to read]({url})", inline=False)
 
     return embed
 
@@ -80,8 +86,12 @@ async def on_command_error(ctx, error):
         print(f"Error: {error}")
 
 if __name__ == "__main__":
-    token = os.getenv("DISCORD_TOKEN")
-    if not token:
-        print("Error: DISCORD_TOKEN not found in environment.")
-    else:
-        bot.run(token)
+    try:
+        bot.run(Config.DISCORD_TOKEN)
+    finally:
+        import asyncio
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+             loop.create_task(reddit_service.close())
+        else:
+             asyncio.run(reddit_service.close())

@@ -109,3 +109,28 @@ def test_get_best_image_logic(mock_reddit_env):
         sub4.url = "https://example.com/post"
         sub4.thumbnail = "default"
         assert service._get_best_image(sub4) is None
+
+def test_get_best_image_complex_preview(mock_reddit_env):
+    with patch("asyncpraw.Reddit", return_value=MagicMock()):
+        service = RedditService()
+
+        # Test nested preview structure
+        sub = MagicMock()
+        sub.preview = {
+            "images": [
+                {
+                    "source": {"url": "high_res_url", "width": 1000, "height": 1500},
+                    "resolutions": [{"url": "low_res_url", "width": 100, "height": 150}]
+                }
+            ]
+        }
+        assert service._get_best_image(sub) == "high_res_url"
+
+def test_get_best_image_direct_url_case_insensitive(mock_reddit_env):
+    with patch("asyncpraw.Reddit", return_value=MagicMock()):
+        service = RedditService()
+
+        sub = MagicMock()
+        del sub.preview
+        sub.url = "HTTPS://EXAMPLE.COM/IMAGE.JPG"
+        assert service._get_best_image(sub) == "HTTPS://EXAMPLE.COM/IMAGE.JPG"
