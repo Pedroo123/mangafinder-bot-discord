@@ -100,8 +100,8 @@ def test_get_best_image_logic(mock_reddit_env):
         sub3 = MagicMock()
         del sub3.preview
         sub3.url = "https://example.com/post"
-        sub3.thumbnail = "url_thumb"
-        assert service._get_best_image(sub3) == "url_thumb"
+        sub3.thumbnail = "https://example.com/thumb.jpg"
+        assert service._get_best_image(sub3) == "https://example.com/thumb.jpg"
 
         # Case 4: No image at all
         sub4 = MagicMock()

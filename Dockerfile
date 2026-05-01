@@ -29,4 +29,4 @@ USER appuser
 ENV PYTHONPATH=/app/src
 
 # Run the bot
-CMD ["python", "src/bot.py"]
+CMD ["python", "src/main.py"]
