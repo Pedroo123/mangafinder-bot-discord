@@ -1,18 +1,16 @@
-import os
 import asyncpraw
+import html
 from typing import List, Optional, Dict, Any
-from dotenv import load_dotenv
-
-load_dotenv()
+from config import Config
 
 class RedditService:
     def __init__(self):
         self.reddit = asyncpraw.Reddit(
-            client_id=os.getenv("REDDIT_CLIENT_ID"),
-            client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
-            username=os.getenv("REDDIT_USERNAME"),
-            password=os.getenv("REDDIT_PASSWORD"),
-            user_agent=os.getenv("REDDIT_USER_AGENT", "mangafinder-bot/0.1 by Brankksss")
+            client_id=Config.REDDIT_CLIENT_ID,
+            client_secret=Config.REDDIT_CLIENT_SECRET,
+            username=Config.REDDIT_USERNAME,
+            password=Config.REDDIT_PASSWORD,
+            user_agent=Config.REDDIT_USER_AGENT
         )
 
     async def search_subreddit(
@@ -28,11 +26,9 @@ class RedditService:
         if not query:
             raise ValueError("query is required")
 
+        # subreddit() in asyncpraw is not a coroutine
         subreddit = self.reddit.subreddit(subreddit_name)
 
-        # AsyncPRAW search doesn't have an 'after' parameter directly in search()
-        # but we can use the listing generator.
-        # restrict_sr=True is equivalent to searching within the subreddit.
         search_results = subreddit.search(
             query,
             sort=sort,
@@ -45,7 +41,6 @@ class RedditService:
         last_fullname = None
 
         async for submission in search_results:
-            # Replicating the mapping logic from TS
             post = {
                 "id": submission.id,
                 "title": submission.title,
@@ -63,23 +58,25 @@ class RedditService:
 
         return {
             "posts": posts,
-            "after": last_fullname # In PRAW, we use the fullname for the next 'after'
+            "after": last_fullname
         }
 
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
         Attempts to find the best image URL for the submission.
+        Handles HTML entity unescaping for Reddit API URLs.
         """
         # 1. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
-                return submission.preview['images'][0]['source']['url']
+                image_url = submission.preview['images'][0]['source']['url']
+                return html.unescape(image_url)
             except (IndexError, KeyError):
                 pass
 
         # 2. If it's a direct image link
         url = getattr(submission, 'url', '')
-        if url.endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+        if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
         # 3. Fallback to thumbnail

@@ -3,14 +3,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from service.reddit_service import RedditService
 
 @pytest.fixture
-def mock_reddit_env():
-    with patch.dict("os.environ", {
-        "REDDIT_CLIENT_ID": "dummy_id",
-        "REDDIT_CLIENT_SECRET": "dummy_secret",
-        "REDDIT_USERNAME": "dummy_user",
-        "REDDIT_PASSWORD": "dummy_password"
-    }):
-        yield
+def mock_config():
+    with patch("service.reddit_service.Config") as mock:
+        mock.REDDIT_CLIENT_ID = "dummy_id"
+        mock.REDDIT_CLIENT_SECRET = "dummy_secret"
+        mock.REDDIT_USERNAME = "dummy_user"
+        mock.REDDIT_PASSWORD = "dummy_password"
+        mock.REDDIT_USER_AGENT = "dummy_agent"
+        yield mock
 
 class AsyncIterator:
     def __init__(self, items):
@@ -28,7 +28,7 @@ class AsyncIterator:
         return item
 
 @pytest.mark.asyncio
-async def test_search_subreddit_success(mock_reddit_env):
+async def test_search_subreddit_success(mock_config):
     # Setup
     with patch("asyncpraw.Reddit", return_value=MagicMock()) as mock_reddit_class:
         mock_reddit = mock_reddit_class.return_value
@@ -67,7 +67,7 @@ async def test_search_subreddit_success(mock_reddit_env):
         assert result["after"] == "t3_123"
 
 @pytest.mark.asyncio
-async def test_search_subreddit_no_results(mock_reddit_env):
+async def test_search_subreddit_no_results(mock_config):
     with patch("asyncpraw.Reddit", return_value=MagicMock()) as mock_reddit_class:
         mock_reddit = mock_reddit_class.return_value
         service = RedditService()
@@ -81,14 +81,14 @@ async def test_search_subreddit_no_results(mock_reddit_env):
         assert len(result["posts"]) == 0
         assert result["after"] is None
 
-def test_get_best_image_logic(mock_reddit_env):
+def test_get_best_image_logic(mock_config):
     with patch("asyncpraw.Reddit", return_value=MagicMock()):
         service = RedditService()
 
         # Case 1: Preview available
         sub1 = MagicMock()
-        sub1.preview = {"images": [{"source": {"url": "url_preview"}}]}
-        assert service._get_best_image(sub1) == "url_preview"
+        sub1.preview = {"images": [{"source": {"url": "url_preview&amp;s=123"}}]}
+        assert service._get_best_image(sub1) == "url_preview&s=123"
 
         # Case 2: No preview, but direct image URL
         sub2 = MagicMock()

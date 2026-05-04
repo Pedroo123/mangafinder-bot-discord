@@ -1,45 +1,51 @@
-import os
 import discord
 from discord.ext import commands
 from datetime import datetime
-from dotenv import load_dotenv
+from config import Config
 from service.reddit_service import RedditService
 
-load_dotenv()
+# Validate configuration on startup
+Config.validate()
 
 # Intents are required for discord.py >= 2.0
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
-reddit_service = RedditService()
+
+# Delay service initialization until bot is starting or needed
+reddit_service = None
+
+def get_reddit_service():
+    global reddit_service
+    if reddit_service is None:
+        reddit_service = RedditService()
+    return reddit_service
 
 def format_manga_embed(post: dict) -> discord.Embed:
     """
     Formats a Reddit post into a Discord Embed card.
-    Strictly includes: Title, Date, Front Page (image), and Link.
+    Includes: Title, Date, Front Page (image), and Link.
     """
     title = post.get('title', 'No Title')
     url = post.get('permalink', post.get('url', ''))
     created_utc = post.get('created_utc')
     date_str = "Unknown Date"
     if created_utc:
-        # Using a cleaner date format
         date_str = datetime.fromtimestamp(created_utc).strftime('%B %d, %Y')
 
     embed = discord.Embed(
         title=title[:256],
         url=url,
-        color=discord.Color.orange() # Reddit-ish color
+        color=discord.Color.blue()
     )
 
     embed.add_field(name="Date", value=date_str, inline=False)
 
-    thumbnail = post.get('thumbnail')
-    if thumbnail:
-        embed.set_image(url=thumbnail)
+    image_url = post.get('thumbnail')
+    if image_url:
+        embed.set_image(url=image_url)
 
-    # Adding a footer with the link as well for clarity
     embed.set_footer(text=f"Source: r/{post.get('subreddit', 'reddit')}")
 
     return embed
@@ -50,15 +56,29 @@ async def on_ready():
     print('------')
 
 @bot.command(name='search')
-async def search(ctx, subreddit_name: str, *, query: str):
+async def search(ctx, *, query: str):
     """
-    Searches for a manga in a specific subreddit.
-    Usage: !search <subreddit> <manga_name>
+    Searches for a manga. Defaults to r/manga.
+    Usage: !search <manga_name>
+    Optional: !search r/subreddit <manga_name>
     """
-    await ctx.send(f"Searching for '{query}' in r/{subreddit_name}...")
+    subreddit_name = "manga"
+    search_query = query
+
+    if query.startswith("r/"):
+        parts = query.split(" ", 1)
+        if len(parts) > 1:
+            subreddit_name = parts[0].replace("r/", "")
+            search_query = parts[1]
+        else:
+            await ctx.send("Please provide a search query after the subreddit.")
+            return
+
+    await ctx.send(f"Searching for '{search_query}' in r/{subreddit_name}...")
 
     try:
-        result = await reddit_service.search_subreddit(subreddit_name, query, limit=5)
+        service = get_reddit_service()
+        result = await service.search_subreddit(subreddit_name, search_query, limit=5)
         posts = result.get('posts', [])
 
         if not posts:
@@ -75,13 +95,15 @@ async def search(ctx, subreddit_name: str, *, query: str):
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send("Missing arguments. Usage: !search <subreddit> <query>")
+        await ctx.send("Missing arguments. Usage: !search <query> or !search r/subreddit <query>")
     else:
         print(f"Error: {error}")
 
 if __name__ == "__main__":
-    token = os.getenv("DISCORD_TOKEN")
-    if not token:
-        print("Error: DISCORD_TOKEN not found in environment.")
-    else:
-        bot.run(token)
+    try:
+        bot.run(Config.DISCORD_TOKEN)
+    finally:
+        if reddit_service:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(reddit_service.close())
