@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.8-slim
+FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -29,4 +29,4 @@ USER appuser
 ENV PYTHONPATH=/app/src
 
 # Run the bot
-CMD ["python", "src/bot.py"]
+CMD ["python", "src/main.py"]
