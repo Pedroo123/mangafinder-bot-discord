@@ -1,8 +1,8 @@
 import discord
 from discord.ext import commands
-from datetime import datetime
 from config import Config
 from service.reddit_service import RedditService
+from ui.embed_factory import format_manga_embed
 
 # Validate configuration on startup
 Config.validate()
@@ -22,49 +22,18 @@ def get_reddit_service():
         _reddit_service = RedditService()
     return _reddit_service
 
-def format_manga_embed(post: dict) -> discord.Embed:
-    """
-    Formats a Reddit post into a Discord Embed card.
-    Strictly includes: Title, Date, Front Page (image), and Link.
-    """
-    title = post.get('title', 'No Title')
-    url = post.get('permalink', post.get('url', ''))
-    created_utc = post.get('created_utc')
-    date_str = "Unknown Date"
-    if created_utc:
-        date_str = datetime.fromtimestamp(created_utc).strftime('%B %d, %Y')
-
-    embed = discord.Embed(
-        title=title[:256],
-        url=url,
-        color=discord.Color.blue()
-    )
-
-    embed.add_field(name="Date", value=date_str, inline=False)
-
-    image_url = post.get('thumbnail')
-    if image_url:
-        embed.set_image(url=image_url)
-
-    embed.set_footer(text=f"Source: r/{post.get('subreddit', 'reddit')}")
-
-    return embed
-
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name} (ID: {bot.user.id})')
     print('------')
 
 @bot.command(name='search')
-async def search(ctx, *, query: str):
+async def search(ctx, query: str, subreddit_name: str = 'manga'):
     """
-    Searches for a manga in r/manga.
-    Usage: !search <query>
-    Example: !search One Piece
+    Searches for a manga. Defaults to r/manga.
+    Usage: !search <query> [subreddit]
+    Example: !search "One Piece" manga
     """
-    # Simplified search: default to r/manga as requested for a manga bot
-    subreddit_name = 'manga'
-
     await ctx.send(f"Searching for '{query}' in r/{subreddit_name}...")
 
     try:

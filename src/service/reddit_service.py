@@ -1,5 +1,7 @@
 import asyncpraw
+import asyncprawcore
 import html
+import logging
 from typing import List, Optional, Dict, Any
 from config import Config
 
@@ -60,8 +62,8 @@ class RedditService:
                 "posts": posts,
                 "after": last_fullname
             }
-        except Exception as e:
-            # Re-raise or handle specifically
+        except (asyncprawcore.exceptions.PRAWException, Exception) as e:
+            logging.error(f"Reddit search failed for query '{query}' in r/{subreddit_name}: {str(e)}")
             raise Exception(f"Reddit search failed: {str(e)}")
 
     def _get_best_image(self, submission: Any) -> Optional[str]:
