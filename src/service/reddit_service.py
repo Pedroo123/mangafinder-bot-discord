@@ -1,7 +1,11 @@
 import asyncpraw
+import asyncprawcore
 import html
+import logging
 from typing import List, Optional, Dict, Any
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 class RedditService:
     def __init__(self):
@@ -60,7 +64,11 @@ class RedditService:
                 "posts": posts,
                 "after": last_fullname
             }
+        except asyncprawcore.exceptions.PRAWException as e:
+            logger.error(f"PRAW error during search: {e}")
+            raise Exception(f"Reddit API error: {str(e)}")
         except Exception as e:
+            logger.exception(f"Unexpected error during search: {e}")
             # Re-raise or handle specifically
             raise Exception(f"Reddit search failed: {str(e)}")
 

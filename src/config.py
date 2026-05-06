@@ -22,4 +22,5 @@ class Config:
         ]
         missing = [var for var in required_vars if not getattr(cls, var)]
         if missing:
+            # When running in Azure, these should be set in the Container App environment
             raise ValueError(f"Missing environment variables: {', '.join(missing)}")
