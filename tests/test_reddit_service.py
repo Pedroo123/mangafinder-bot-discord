@@ -64,3 +64,28 @@ async def test_search_subreddit_calls_praw(reddit_service):
     assert result['posts'][0]['title'] == "Test Post"
     assert result['after'] == "t3_123"
     reddit_service.reddit.subreddit.assert_called_with("manga")
+
+@pytest.mark.asyncio
+async def test_search_subreddit_logging(reddit_service):
+    # Mocking the async iterator for search
+    mock_submission = MagicMock()
+    mock_submission.id = "123"
+    mock_submission.title = "Test Post"
+    mock_submission.url = "https://reddit.com/test"
+    mock_submission.permalink = "/r/test/comments/123"
+    mock_submission.author = "tester"
+    mock_submission.created_utc = 1234567890
+    mock_submission.score = 100
+    mock_submission.num_comments = 10
+    mock_submission.subreddit = "manga"
+    mock_submission.name = "t3_123"
+    mock_submission.thumbnail = "self"
+
+    mock_search_results = AsyncMock()
+    mock_search_results.__aiter__.return_value = [mock_submission]
+
+    reddit_service.reddit.subreddit.return_value.search.return_value = mock_search_results
+
+    with patch('service.reddit_service.logger') as mock_logger:
+        await reddit_service.search_subreddit("manga", "One Piece")
+        mock_logger.info.assert_called_with("Found 1 posts for query 'One Piece' in r/manga")

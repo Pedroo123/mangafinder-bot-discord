@@ -8,7 +8,13 @@ from config import Config
 logger = logging.getLogger(__name__)
 
 class RedditService:
+    """
+    Service class to interact with the Reddit API using asyncpraw.
+    """
     def __init__(self):
+        """
+        Initializes the Reddit service with credentials from the configuration.
+        """
         self.reddit = asyncpraw.Reddit(
             client_id=Config.REDDIT_CLIENT_ID,
             client_secret=Config.REDDIT_CLIENT_SECRET,
@@ -25,6 +31,19 @@ class RedditService:
         sort: str = "new",
         after: Optional[str] = None
     ) -> Dict[str, Any]:
+        """
+        Searches for posts in a specific subreddit.
+
+        Args:
+            subreddit_name: The name of the subreddit to search in.
+            query: The search query.
+            limit: The maximum number of results to return.
+            sort: How to sort the results (e.g., 'new', 'relevance').
+            after: The fullname of a post to start the search after (for pagination).
+
+        Returns:
+            A dictionary containing a list of posts and the 'after' fullname.
+        """
         if not subreddit_name:
             raise ValueError("subreddit_name is required")
         if not query:
@@ -60,6 +79,7 @@ class RedditService:
                 posts.append(post)
                 last_fullname = submission.name
 
+            logger.info(f"Found {len(posts)} posts for query '{query}' in r/{subreddit_name}")
             return {
                 "posts": posts,
                 "after": last_fullname
@@ -69,13 +89,18 @@ class RedditService:
             raise Exception(f"Reddit API error: {str(e)}")
         except Exception as e:
             logger.exception(f"Unexpected error during search: {e}")
-            # Re-raise or handle specifically
             raise Exception(f"Reddit search failed: {str(e)}")
 
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
         Attempts to find the best image URL for the submission.
         Handles HTML unescaping for PRAW URLs.
+
+        Args:
+            submission: The asyncpraw Submission object.
+
+        Returns:
+            A string containing the best image URL found, or None.
         """
         # 1. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
@@ -98,4 +123,7 @@ class RedditService:
         return None
 
     async def close(self):
+        """
+        Closes the underlying asyncpraw Reddit instance.
+        """
         await self.reddit.close()
