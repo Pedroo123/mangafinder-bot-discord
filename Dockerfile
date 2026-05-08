@@ -14,6 +14,9 @@ RUN adduser -u 5678 --disabled-password --gecos "" appuser
 # Set work directory
 WORKDIR /app
 
+# Install system dependencies including procps for pgrep (healthcheck)
+RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 # Layer caching: only re-install if requirements.txt changes
 COPY requirements.txt .
@@ -31,6 +34,10 @@ USER appuser
 
 # Set the path so python can find the modules in src
 ENV PYTHONPATH=/app/src
+
+# Healthcheck to ensure the process is still running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD pgrep -f "python src/main.py" || exit 1
 
 # Run the bot
 CMD ["python", "src/main.py"]

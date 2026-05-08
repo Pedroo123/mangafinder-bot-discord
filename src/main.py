@@ -1,8 +1,21 @@
 import discord
+import logging
+import sys
 from discord.ext import commands
 from config import Config
 from service.reddit_service import RedditService
 from ui.embed_factory import format_manga_embed
+from utils.parser import parse_search_query
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Validate configuration on startup
 Config.validate()
@@ -24,24 +37,29 @@ def get_reddit_service():
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user.name} (ID: {bot.user.id})')
-    print('------')
+    logger.info(f'Logged in as {bot.user.name} (ID: {bot.user.id})')
+    logger.info('------')
 
 @bot.command(name='search')
 async def search(ctx, *, query: str):
     """
-    Searches for a manga in r/manga.
-    Usage: !search <query>
+    Searches for a manga. Defaults to r/manga.
+    Usage: !search <query> [--subreddit <name> | -s <name>]
     Example: !search One Piece
+             !search Berserk --subreddit manga
+             !search Naruto -s anime
     """
-    # Simplified search: default to r/manga as requested for a manga bot
-    subreddit_name = 'manga'
+    query, subreddit_name = parse_search_query(query)
+
+    if not query:
+        await ctx.send("Please provide a search term. Usage: !search <query> [--subreddit <name>]")
+        return
 
     await ctx.send(f"Searching for '{query}' in r/{subreddit_name}...")
 
     try:
         service = get_reddit_service()
-        result = await service.search_subreddit(subreddit_name, query, limit=5)
+        result = await service.search_subreddit(subreddit_name, query, limit=10)
         posts = result.get('posts', [])
 
         if not posts:
@@ -60,7 +78,7 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send("Missing arguments. Usage: !search <query>")
     else:
-        print(f"Error: {error}")
+        logger.error(f"Error: {error}")
 
 @bot.event
 async def close():

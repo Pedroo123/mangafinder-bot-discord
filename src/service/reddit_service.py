@@ -49,7 +49,7 @@ class RedditService:
                     "id": submission.id,
                     "title": submission.title,
                     "url": submission.url,
-                    "permalink": f"https://reddit.com{submission.permalink}" if submission.permalink else None,
+                    "permalink": f"https://reddit.com{submission.permalink}" if submission.permalink and not submission.permalink.startswith('http') else submission.permalink,
                     "author": str(submission.author) if submission.author else None,
                     "created_utc": submission.created_utc,
                     "score": submission.score,
