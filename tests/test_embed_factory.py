@@ -6,6 +6,7 @@ from ui.embed_factory import format_manga_embed
 def test_format_manga_embed_full_data():
     post = {
         'title': 'Test Manga',
+        'url': 'https://mangadex.org/title/123',
         'permalink': 'https://reddit.com/r/manga/comments/123',
         'created_utc': 1672531200,  # 2023-01-01 00:00:00 UTC
         'thumbnail': 'https://example.com/image.jpg',
@@ -15,7 +16,7 @@ def test_format_manga_embed_full_data():
     embed = format_manga_embed(post)
 
     assert embed.title == 'Test Manga'
-    assert embed.url == 'https://reddit.com/r/manga/comments/123'
+    assert embed.url == 'https://mangadex.org/title/123'
     assert embed.timestamp == datetime.fromtimestamp(1672531200, tz=timezone.utc)
     assert embed.image.url == 'https://example.com/image.jpg'
     assert embed.footer.text == 'Source: r/manga'

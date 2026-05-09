@@ -7,8 +7,8 @@ def format_manga_embed(post: dict) -> discord.Embed:
     Strictly includes: Title, Date, Front Page (image), and Link.
     """
     title = post.get('title', 'No Title')
-    # Use permalink if available, otherwise fallback to url
-    url = post.get('permalink', post.get('url', ''))
+    # Prefer external URL for 'redirect' purposes, fallback to permalink
+    url = post.get('url', post.get('permalink', ''))
     created_utc = post.get('created_utc')
 
     embed = discord.Embed(
@@ -16,6 +16,11 @@ def format_manga_embed(post: dict) -> discord.Embed:
         url=url,
         color=discord.Color.blue()
     )
+
+    # If external URL and reddit permalink are different, add the reddit thread as a link
+    permalink = post.get('permalink')
+    if permalink and permalink != url:
+        embed.add_field(name="Reddit Thread", value=f"[View Comments]({permalink})", inline=True)
 
     if created_utc:
         dt = datetime.fromtimestamp(created_utc, tz=timezone.utc)
