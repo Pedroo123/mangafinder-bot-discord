@@ -47,7 +47,7 @@ class RedditService:
             async for submission in search_results:
                 post = {
                     "id": submission.id,
-                    "title": submission.title,
+                    "title": html.unescape(submission.title) if submission.title else "No Title",
                     "url": submission.url,
                     "permalink": f"https://reddit.com{submission.permalink}" if submission.permalink else None,
                     "author": str(submission.author) if submission.author else None,

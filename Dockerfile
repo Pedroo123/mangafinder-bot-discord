@@ -9,6 +9,7 @@ ENV PYTHONUNBUFFERED=1
 
 # Create a non-root user for security
 # Azure Container Apps can run as any user, but non-root is best practice
+RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
 RUN adduser -u 5678 --disabled-password --gecos "" appuser
 
 # Set work directory
@@ -31,6 +32,10 @@ USER appuser
 
 # Set the path so python can find the modules in src
 ENV PYTHONPATH=/app/src
+
+# Healthcheck to ensure the bot process is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD pgrep -af "python src/main.py" || exit 1
 
 # Run the bot
 CMD ["python", "src/main.py"]
