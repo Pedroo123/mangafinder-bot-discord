@@ -1,6 +1,9 @@
 # Use an official Python runtime as a parent image
 FROM python:3.12-slim
 
+# Install procps for pgrep (used in healthcheck)
+RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
+
 # Set environment variables
 # Prevents Python from writing pyc files to disc
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -31,6 +34,10 @@ USER appuser
 
 # Set the path so python can find the modules in src
 ENV PYTHONPATH=/app/src
+
+# Healthcheck to ensure the bot process is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD pgrep -f "python src/main.py" || exit 1
 
 # Run the bot
 CMD ["python", "src/main.py"]
