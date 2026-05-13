@@ -75,22 +75,40 @@ class RedditService:
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
         Attempts to find the best image URL for the submission.
-        Handles HTML unescaping for PRAW URLs.
+        Handles galleries, previews, and direct links.
         """
-        # 1. Try preview images (often high res)
+        # 1. Handle Reddit Galleries
+        if getattr(submission, 'is_gallery', False) and hasattr(submission, 'media_metadata'):
+            try:
+                # Get the first item's ID from gallery_data if available, otherwise just first key
+                first_id = None
+                if hasattr(submission, 'gallery_data') and 'items' in submission.gallery_data:
+                    first_id = submission.gallery_data['items'][0]['media_id']
+                else:
+                    first_id = list(submission.media_metadata.keys())[0]
+
+                image_data = submission.media_metadata[first_id]
+                if 's' in image_data and 'u' in image_data['s']:
+                    return html.unescape(image_data['s']['u'])
+            except (IndexError, KeyError, AttributeError):
+                pass
+
+        # 2. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
+                # 'source' is the highest res, 'resolutions' are scaled down
+                # Discord typically handles large images, but we could pick a middle one if needed.
                 url = submission.preview['images'][0]['source']['url']
                 return html.unescape(url)
             except (IndexError, KeyError):
                 pass
 
-        # 2. If it's a direct image link
+        # 3. If it's a direct image link
         url = getattr(submission, 'url', '')
-        if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+        if any(url.lower().endswith(ext) for ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
-        # 3. Fallback to thumbnail
+        # 4. Fallback to thumbnail
         thumbnail = getattr(submission, 'thumbnail', None)
         if thumbnail and thumbnail not in ('default', 'self', 'nsfw', ''):
             return thumbnail

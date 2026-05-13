@@ -36,8 +36,14 @@ USER appuser
 ENV PYTHONPATH=/app/src
 
 # Healthcheck to ensure the bot process is running
+# Using pgrep to check for the python process
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD pgrep -f "python src/main.py" || exit 1
+
+# Metadata
+LABEL maintainer="MangaFinder Team"
+LABEL version="1.0"
+LABEL description="Discord bot for finding manga on Reddit"
 
 # Run the bot
 CMD ["python", "src/main.py"]

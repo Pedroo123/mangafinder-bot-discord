@@ -50,3 +50,19 @@ def test_format_manga_embed_no_thumbnail():
     # discord.py Embed image.url returns None if not set,
     # and discord.utils.MISSING or Empty is not an attribute of Embed.
     assert embed.image.url is None
+
+def test_format_manga_embed_dual_links():
+    post = {
+        'title': 'Test Manga',
+        'url': 'https://mangadex.org/chapter/123',
+        'permalink': 'https://reddit.com/r/manga/comments/123',
+        'created_utc': 1672531200,
+        'subreddit': 'manga'
+    }
+
+    embed = format_manga_embed(post)
+
+    assert embed.url == 'https://mangadex.org/chapter/123'
+    link_field = next(f for f in embed.fields if f.name == "Link")
+    assert "[Content](https://mangadex.org/chapter/123)" in link_field.value
+    assert "[Reddit](https://reddit.com/r/manga/comments/123)" in link_field.value
