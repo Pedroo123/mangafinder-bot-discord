@@ -85,6 +85,32 @@ class RedditService:
             except (IndexError, KeyError):
                 pass
 
+        # 1.5 Handle Reddit Galleries
+        if getattr(submission, 'is_gallery', False):
+            try:
+                media_id = None
+                # Try to get the first image according to gallery_data ordering
+                if hasattr(submission, 'gallery_data') and 'items' in submission.gallery_data:
+                    items = submission.gallery_data['items']
+                    if items:
+                        media_id = items[0].get('media_id')
+
+                if media_id and hasattr(submission, 'media_metadata') and media_id in submission.media_metadata:
+                    media_item = submission.media_metadata[media_id]
+                    gallery_url = media_item.get('s', {}).get('u')
+                    if gallery_url:
+                        return html.unescape(gallery_url)
+
+                # Fallback to just taking the first item from media_metadata if gallery_data is unavailable
+                if hasattr(submission, 'media_metadata'):
+                    items = list(submission.media_metadata.values())
+                    if items:
+                        gallery_url = items[0].get('s', {}).get('u')
+                        if gallery_url:
+                            return html.unescape(gallery_url)
+            except (IndexError, KeyError, AttributeError):
+                pass
+
         # 2. If it's a direct image link
         url = getattr(submission, 'url', '')
         if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):

@@ -80,9 +80,17 @@ async def search(ctx, *, query: str):
             embed = format_manga_embed(post)
             await ctx.send(embed=embed)
 
+    except asyncio.TimeoutError:
+        logger.error(f"Timeout searching for '{normalized_query}'")
+        await ctx.send("The search timed out. Please try again later.")
     except Exception as e:
         logger.error(f"Error during search command: {e}", exc_info=True)
-        await ctx.send(f"An error occurred while searching. Please try again later.")
+        # Check if it's a known error message we want to relay safely
+        error_msg = str(e)
+        if "Reddit API error" in error_msg:
+            await ctx.send(f"Reddit API is currently unavailable. Please try again later.")
+        else:
+            await ctx.send(f"An unexpected error occurred while searching.")
 
 @bot.event
 async def on_command_error(ctx, error):
