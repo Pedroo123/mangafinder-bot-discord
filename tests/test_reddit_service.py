@@ -64,3 +64,34 @@ async def test_search_subreddit_calls_praw(reddit_service):
     assert result['posts'][0]['title'] == "Test Post"
     assert result['after'] == "t3_123"
     reddit_service.reddit.subreddit.assert_called_with("manga")
+
+def test_get_best_image_gallery(reddit_service):
+    submission = MagicMock()
+    submission.is_gallery = True
+    submission.gallery_data = {
+        'items': [{'media_id': 'img1'}]
+    }
+    submission.media_metadata = {
+        'img1': {
+            's': {'u': "https://example.com/gallery1.jpg&amp;v=1"}
+        }
+    }
+    submission.preview = {}
+    submission.url = "https://reddit.com/gallery/123"
+
+    assert reddit_service._get_best_image(submission) == "https://example.com/gallery1.jpg&v=1"
+
+def test_get_best_image_gallery_gif(reddit_service):
+    submission = MagicMock()
+    submission.is_gallery = True
+    submission.gallery_data = {
+        'items': [{'media_id': 'gif1'}]
+    }
+    submission.media_metadata = {
+        'gif1': {
+            's': {'gif': "https://example.com/gallery1.gif"}
+        }
+    }
+    submission.preview = {}
+
+    assert reddit_service._get_best_image(submission) == "https://example.com/gallery1.gif"

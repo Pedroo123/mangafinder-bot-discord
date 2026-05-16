@@ -76,13 +76,23 @@ async def search(ctx, *, query: str):
             await ctx.send("No results found.")
             return
 
-        for post in posts:
-            embed = format_manga_embed(post)
-            await ctx.send(embed=embed)
+        # Send up to 5 embeds in a single message to reduce spam
+        # Discord limit is 10 embeds per message. We requested 5 in search_subreddit.
+        embeds = [format_manga_embed(post) for post in posts[:10]]
+        await ctx.send(embeds=embeds)
 
+    except asyncio.TimeoutError:
+        logger.error(f"Timeout searching for '{normalized_query}' in r/{subreddit_name}")
+        await ctx.send("The search timed out. Please try again later.")
     except Exception as e:
-        logger.error(f"Error during search command: {e}", exc_info=True)
-        await ctx.send(f"An error occurred while searching. Please try again later.")
+        error_msg = str(e)
+        if "Redirect to /subreddits/search" in error_msg or "404" in error_msg:
+            await ctx.send(f"Subreddit r/{subreddit_name} not found.")
+        elif "403" in error_msg:
+            await ctx.send(f"I don't have access to r/{subreddit_name} (it might be private or banned).")
+        else:
+            logger.error(f"Error during search command: {e}", exc_info=True)
+            await ctx.send("An error occurred while searching. Please try again later.")
 
 @bot.event
 async def on_command_error(ctx, error):
