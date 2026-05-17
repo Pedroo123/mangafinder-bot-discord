@@ -77,7 +77,22 @@ class RedditService:
         Attempts to find the best image URL for the submission.
         Handles HTML unescaping for PRAW URLs.
         """
-        # 1. Try preview images (often high res)
+        # 1. Handle Reddit Galleries
+        if getattr(submission, 'is_gallery', False) is True:
+            try:
+                gallery_data = getattr(submission, 'gallery_data', {})
+                items = gallery_data.get('items', [])
+                if items:
+                    media_id = items[0].get('media_id')
+                    media_metadata = getattr(submission, 'media_metadata', {})
+                    if media_id in media_metadata:
+                        url = media_metadata[media_id].get('s', {}).get('u')
+                        if url:
+                            return html.unescape(url)
+            except (AttributeError, KeyError, IndexError):
+                pass
+
+        # 2. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
                 url = submission.preview['images'][0]['source']['url']
@@ -85,12 +100,12 @@ class RedditService:
             except (IndexError, KeyError):
                 pass
 
-        # 2. If it's a direct image link
+        # 3. If it's a direct image link
         url = getattr(submission, 'url', '')
         if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
-        # 3. Fallback to thumbnail
+        # 4. Fallback to thumbnail
         thumbnail = getattr(submission, 'thumbnail', None)
         if thumbnail and thumbnail not in ('default', 'self', 'nsfw', ''):
             return thumbnail

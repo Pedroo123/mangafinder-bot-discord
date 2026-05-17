@@ -17,6 +17,10 @@ RUN adduser -u 5678 --disabled-password --gecos "" appuser
 # Set work directory
 WORKDIR /app
 
+LABEL maintainer="Brankksss"
+LABEL version="0.1"
+LABEL description="Discord bot to search for manga on Reddit"
+
 # Install dependencies
 # Layer caching: only re-install if requirements.txt changes
 COPY requirements.txt .
