@@ -24,6 +24,10 @@ def test_format_manga_embed_full_data():
     date_field = next(f for f in embed.fields if f.name == "Date")
     assert date_field.value == 'January 01, 2023'
 
+    # Check for the Link field
+    link_field = next(f for f in embed.fields if f.name == "Link")
+    assert link_field.value == '[Click here to view](https://reddit.com/r/manga/comments/123)'
+
 def test_format_manga_embed_missing_date():
     post = {
         'title': 'Test Manga',

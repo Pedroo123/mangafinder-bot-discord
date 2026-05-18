@@ -1,6 +1,10 @@
 # Use an official Python runtime as a parent image
 FROM python:3.12-slim
 
+LABEL maintainer="Brankksss" \
+      version="1.0" \
+      description="Discord bot for searching manga on Reddit"
+
 # Install procps for pgrep (used in healthcheck)
 RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
 
