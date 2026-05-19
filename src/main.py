@@ -68,21 +68,32 @@ async def search(ctx, *, query: str):
 
     try:
         service = bot.get_reddit_service()
-        result = await service.search_subreddit(subreddit_name, normalized_query, limit=5)
+        result = await service.search_subreddit(subreddit_name, normalized_query, limit=10)
         posts = result.get('posts', [])
 
         if not posts:
-            logger.info(f"No results found for '{query}'")
-            await ctx.send("No results found.")
+            logger.info(f"No results found for '{normalized_query}'")
+            await ctx.send(f"No results found for '{normalized_query}' in r/{subreddit_name}.")
             return
 
-        for post in posts:
-            embed = format_manga_embed(post)
-            await ctx.send(embed=embed)
+        # Send in batches of 5 to avoid spamming too many messages
+        # Discord allows up to 10 embeds per message, but we'll stick to a reasonable limit
+        for i in range(0, len(posts), 5):
+            batch = posts[i:i+5]
+            embeds = [format_manga_embed(post) for post in batch]
+            await ctx.send(embeds=embeds)
 
     except Exception as e:
-        logger.error(f"Error during search command: {e}", exc_info=True)
-        await ctx.send(f"An error occurred while searching. Please try again later.")
+        import asyncprawcore
+        if isinstance(e, asyncprawcore.exceptions.NotFound):
+            await ctx.send(f"The subreddit 'r/{subreddit_name}' was not found.")
+        elif isinstance(e, asyncprawcore.exceptions.Forbidden):
+            await ctx.send(f"I don't have access to 'r/{subreddit_name}' (it might be private).")
+        elif "Reddit API error" in str(e):
+            await ctx.send(f"Reddit API returned an error. Please try again later.")
+        else:
+            logger.error(f"Error during search command: {e}", exc_info=True)
+            await ctx.send(f"An unexpected error occurred. Please try again later.")
 
 @bot.event
 async def on_command_error(ctx, error):

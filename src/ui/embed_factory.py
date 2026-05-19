@@ -35,6 +35,7 @@ def format_manga_embed(post: dict) -> discord.Embed:
         embed.add_field(name="Link", value=f"[Click here to view]({url})", inline=True)
 
     image_url = post.get('thumbnail')
+    # For Discord embeds, we only set the image if it's a valid http(s) link.
     if image_url and image_url.startswith('http'):
         embed.set_image(url=image_url)
 
