@@ -64,6 +64,12 @@ class RedditService:
                 "posts": posts,
                 "after": last_fullname
             }
+        except asyncprawcore.exceptions.NotFound:
+            logger.error(f"Subreddit r/{subreddit_name} not found.")
+            raise Exception(f"Subreddit r/{subreddit_name} not found.")
+        except asyncprawcore.exceptions.Forbidden:
+            logger.error(f"Access to r/{subreddit_name} is forbidden.")
+            raise Exception(f"Access to r/{subreddit_name} is forbidden.")
         except asyncprawcore.exceptions.PRAWException as e:
             logger.error(f"PRAW error during search: {e}")
             raise Exception(f"Reddit API error: {str(e)}")
@@ -85,12 +91,27 @@ class RedditService:
             except (IndexError, KeyError):
                 pass
 
-        # 2. If it's a direct image link
+        # 2. Handle Reddit Gallery
+        if getattr(submission, 'is_gallery', False) is True:
+            try:
+                items = getattr(submission, 'gallery_data', {}).get('items', [])
+                if items:
+                    media_id = items[0]['media_id']
+                    metadata = getattr(submission, 'media_metadata', {}).get(media_id)
+                    if metadata and metadata.get('status') == 'valid':
+                        # Source image data is in 's'
+                        url = metadata['s'].get('u') or metadata['s'].get('gif')
+                        if url:
+                            return html.unescape(url)
+            except (KeyError, AttributeError):
+                pass
+
+        # 3. If it's a direct image link
         url = getattr(submission, 'url', '')
         if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
-        # 3. Fallback to thumbnail
+        # 4. Fallback to thumbnail
         thumbnail = getattr(submission, 'thumbnail', None)
         if thumbnail and thumbnail not in ('default', 'self', 'nsfw', ''):
             return thumbnail
