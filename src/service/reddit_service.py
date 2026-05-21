@@ -75,9 +75,24 @@ class RedditService:
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
         Attempts to find the best image URL for the submission.
-        Handles HTML unescaping for PRAW URLs.
+        Handles HTML unescaping for PRAW URLs and supports galleries.
         """
-        # 1. Try preview images (often high res)
+        # 1. Handle Galleries
+        if getattr(submission, "is_gallery", False) is True:
+            try:
+                # Use the first item in the gallery
+                item_id = submission.gallery_data['items'][0]['media_id']
+                media_metadata = submission.media_metadata[item_id]
+                # Try to get the highest resolution available in 'p' (previews)
+                if 'p' in media_metadata and media_metadata['p']:
+                    url = media_metadata['p'][-1]['u']
+                else:
+                    url = media_metadata['s']['u']
+                return html.unescape(url)
+            except (AttributeError, KeyError, IndexError):
+                pass
+
+        # 2. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
                 url = submission.preview['images'][0]['source']['url']
@@ -85,12 +100,12 @@ class RedditService:
             except (IndexError, KeyError):
                 pass
 
-        # 2. If it's a direct image link
+        # 3. If it's a direct image link
         url = getattr(submission, 'url', '')
         if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
-        # 3. Fallback to thumbnail
+        # 4. Fallback to thumbnail
         thumbnail = getattr(submission, 'thumbnail', None)
         if thumbnail and thumbnail not in ('default', 'self', 'nsfw', ''):
             return thumbnail

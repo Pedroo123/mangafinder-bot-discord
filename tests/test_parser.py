@@ -7,6 +7,19 @@ def test_parse_query_no_flags():
     assert normalized == "One Piece"
     assert subreddit == "manga"
 
+def test_parse_query_with_underscore_subreddit():
+    query = "Solo Leveling -s manhwa_manga"
+    normalized, subreddit = parse_search_query(query)
+    assert normalized == "Solo Leveling"
+    assert subreddit == "manhwa_manga"
+
+def test_parse_query_multiple_flags_takes_first():
+    # Current implementation takes the first one found by re.search
+    query = "One Piece -s manga --subreddit anime"
+    normalized, subreddit = parse_search_query(query)
+    assert normalized == "One Piece --subreddit anime"
+    assert subreddit == "manga"
+
 def test_parse_query_with_subreddit_flag_long():
     query = "One Piece --subreddit anime"
     normalized, subreddit = parse_search_query(query)

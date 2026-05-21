@@ -37,6 +37,37 @@ def test_get_best_image_thumbnail_fallback(reddit_service):
 
     assert reddit_service._get_best_image(submission) == "https://example.com/thumb.jpg"
 
+def test_get_best_image_gallery(reddit_service):
+    submission = MagicMock()
+    submission.is_gallery = True
+    submission.gallery_data = {
+        'items': [{'media_id': 'item1'}]
+    }
+    submission.media_metadata = {
+        'item1': {
+            'p': [{'u': "https://example.com/p1.jpg&amp;v=1"}, {'u': "https://example.com/p2.jpg&amp;v=1"}],
+            's': {'u': "https://example.com/s.jpg&amp;v=1"}
+        }
+    }
+
+    # Should get highest res preview and unescape
+    assert reddit_service._get_best_image(submission) == "https://example.com/p2.jpg&v=1"
+
+def test_get_best_image_gallery_no_previews(reddit_service):
+    submission = MagicMock()
+    submission.is_gallery = True
+    submission.gallery_data = {
+        'items': [{'media_id': 'item1'}]
+    }
+    submission.media_metadata = {
+        'item1': {
+            's': {'u': "https://example.com/s.jpg&amp;v=1"}
+        }
+    }
+
+    # Should get source and unescape
+    assert reddit_service._get_best_image(submission) == "https://example.com/s.jpg&v=1"
+
 @pytest.mark.asyncio
 async def test_search_subreddit_calls_praw(reddit_service):
     # Mocking the async iterator for search
