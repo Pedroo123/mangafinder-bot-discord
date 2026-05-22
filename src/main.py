@@ -2,6 +2,7 @@ import discord
 import logging
 import asyncio
 from discord.ext import commands
+import asyncprawcore
 from config import Config
 from service.reddit_service import RedditService
 from ui.embed_factory import format_manga_embed
@@ -64,22 +65,45 @@ async def search(ctx, *, query: str):
         return
 
     logger.info(f"User {ctx.author} searched for '{normalized_query}' in r/{subreddit_name}")
+
+    # Use a generic message to keep the UI clean
     await ctx.send(f"Searching for '{normalized_query}' in r/{subreddit_name}...")
 
     try:
         service = bot.get_reddit_service()
-        result = await service.search_subreddit(subreddit_name, normalized_query, limit=5)
+
+        # Add explicit timeout for the reddit API call
+        # 15 seconds is usually enough for Reddit to respond
+        try:
+            result = await asyncio.wait_for(
+                service.search_subreddit(subreddit_name, normalized_query, limit=10),
+                timeout=15.0
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"Search for '{normalized_query}' timed out after 15s")
+            await ctx.send("Search timed out. Reddit is taking too long to respond.")
+            return
+
         posts = result.get('posts', [])
 
         if not posts:
-            logger.info(f"No results found for '{query}'")
-            await ctx.send("No results found.")
+            logger.info(f"No results found for '{normalized_query}'")
+            await ctx.send(f"No results found for '{normalized_query}' in r/{subreddit_name}.")
             return
 
-        for post in posts:
-            embed = format_manga_embed(post)
-            await ctx.send(embed=embed)
+        # Discord allows up to 10 embeds per message.
+        # We'll batch them in groups of 5 to avoid too much spam in a single message
+        # while staying within limits.
+        batch_size = 5
+        for i in range(0, len(posts), batch_size):
+            batch = posts[i : i + batch_size]
+            embeds = [format_manga_embed(post) for post in batch]
+            await ctx.send(embeds=embeds)
 
+    except asyncprawcore.exceptions.NotFound:
+        await ctx.send(f"Subreddit r/{subreddit_name} was not found.")
+    except asyncprawcore.exceptions.Forbidden:
+        await ctx.send(f"I don't have access to r/{subreddit_name} (it might be private).")
     except Exception as e:
         logger.error(f"Error during search command: {e}", exc_info=True)
         await ctx.send(f"An error occurred while searching. Please try again later.")

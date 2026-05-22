@@ -13,6 +13,7 @@ def test_get_best_image_direct_link(reddit_service):
     submission.url = "https://example.com/image.jpg"
     submission.preview = {}
     submission.thumbnail = "default"
+    submission.is_gallery = False
 
     assert reddit_service._get_best_image(submission) == "https://example.com/image.jpg"
 
@@ -25,6 +26,7 @@ def test_get_best_image_preview(reddit_service):
         }]
     }
     submission.thumbnail = "default"
+    submission.is_gallery = False
 
     # Should unescape &amp;
     assert reddit_service._get_best_image(submission) == "https://example.com/preview.jpg&auth=123"
@@ -34,8 +36,21 @@ def test_get_best_image_thumbnail_fallback(reddit_service):
     submission.url = "https://example.com/post"
     del submission.preview
     submission.thumbnail = "https://example.com/thumb.jpg"
+    submission.is_gallery = False
 
     assert reddit_service._get_best_image(submission) == "https://example.com/thumb.jpg"
+
+def test_get_best_image_gallery(reddit_service):
+    submission = MagicMock()
+    submission.is_gallery = True
+    submission.gallery_data = {
+        'items': [{'media_id': 'abc'}]
+    }
+    submission.media_metadata = {
+        'abc': {'s': {'u': 'https://example.com/gallery.jpg&amp;v=1'}}
+    }
+
+    assert reddit_service._get_best_image(submission) == "https://example.com/gallery.jpg&v=1"
 
 @pytest.mark.asyncio
 async def test_search_subreddit_calls_praw(reddit_service):
@@ -52,6 +67,7 @@ async def test_search_subreddit_calls_praw(reddit_service):
     mock_submission.subreddit = "manga"
     mock_submission.name = "t3_123"
     mock_submission.thumbnail = "self"
+    mock_submission.is_gallery = False
 
     mock_search_results = AsyncMock()
     mock_search_results.__aiter__.return_value = [mock_submission]
