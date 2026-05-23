@@ -64,6 +64,9 @@ class RedditService:
                 "posts": posts,
                 "after": last_fullname
             }
+        except (asyncprawcore.exceptions.NotFound, asyncprawcore.exceptions.Forbidden) as e:
+            logger.warning(f"Reddit access error for r/{subreddit_name}: {e}")
+            raise
         except asyncprawcore.exceptions.PRAWException as e:
             logger.error(f"PRAW error during search: {e}")
             raise Exception(f"Reddit API error: {str(e)}")
@@ -77,7 +80,19 @@ class RedditService:
         Attempts to find the best image URL for the submission.
         Handles HTML unescaping for PRAW URLs.
         """
-        # 1. Try preview images (often high res)
+        # 1. Handle Reddit Galleries
+        if getattr(submission, 'is_gallery', False) is True:
+            try:
+                # Get the first item in the gallery
+                first_item_id = submission.gallery_data['items'][0]['media_id']
+                media_item = submission.media_metadata[first_item_id]
+                # Try to get the highest resolution version available in 's' (source)
+                if 's' in media_item and 'u' in media_item['s']:
+                    return html.unescape(media_item['s']['u'])
+            except (AttributeError, KeyError, IndexError):
+                pass
+
+        # 2. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
                 url = submission.preview['images'][0]['source']['url']
@@ -85,12 +100,12 @@ class RedditService:
             except (IndexError, KeyError):
                 pass
 
-        # 2. If it's a direct image link
+        # 3. If it's a direct image link
         url = getattr(submission, 'url', '')
         if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
-        # 3. Fallback to thumbnail
+        # 4. Fallback to thumbnail
         thumbnail = getattr(submission, 'thumbnail', None)
         if thumbnail and thumbnail not in ('default', 'self', 'nsfw', ''):
             return thumbnail

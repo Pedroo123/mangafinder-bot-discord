@@ -35,6 +35,11 @@ USER appuser
 # Set the path so python can find the modules in src
 ENV PYTHONPATH=/app/src
 
+# Metadata labels
+LABEL maintainer="MangaFinder Team"
+LABEL version="1.0"
+LABEL description="Discord bot for searching manga on Reddit"
+
 # Healthcheck to ensure the bot process is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD pgrep -f "python src/main.py" || exit 1
