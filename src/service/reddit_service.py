@@ -77,6 +77,16 @@ class RedditService:
         Attempts to find the best image URL for the submission.
         Handles HTML unescaping for PRAW URLs.
         """
+        # 0. Handle galleries
+        if getattr(submission, 'is_gallery', False) is True:
+            try:
+                # Prioritize first item in gallery_data for correct ordering
+                first_item_id = submission.gallery_data['items'][0]['media_id']
+                url = submission.media_metadata[first_item_id]['s']['u']
+                return html.unescape(url)
+            except (AttributeError, KeyError, IndexError):
+                pass
+
         # 1. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
