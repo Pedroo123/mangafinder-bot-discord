@@ -13,14 +13,18 @@ class Config:
 
     @classmethod
     def validate(cls):
-        required_vars = [
-            "DISCORD_TOKEN",
-            "REDDIT_CLIENT_ID",
-            "REDDIT_CLIENT_SECRET",
-            "REDDIT_USERNAME",
-            "REDDIT_PASSWORD"
-        ]
-        missing = [var for var in required_vars if not getattr(cls, var)]
+        required_vars = {
+            "DISCORD_TOKEN": "Discord Bot Token",
+            "REDDIT_CLIENT_ID": "Reddit API Client ID",
+            "REDDIT_CLIENT_SECRET": "Reddit API Client Secret",
+            "REDDIT_USERNAME": "Reddit Username",
+            "REDDIT_PASSWORD": "Reddit Password"
+        }
+        missing = [friendly_name for var, friendly_name in required_vars.items() if not getattr(cls, var)]
         if missing:
             # When running in Azure, these should be set in the Container App environment
-            raise ValueError(f"Missing environment variables: {', '.join(missing)}")
+            error_msg = "Configuration Error: The following required environment variables are missing:\n"
+            for item in missing:
+                error_msg += f"- {item}\n"
+            error_msg += "Please check your .env file or Azure environment settings."
+            raise ValueError(error_msg)
