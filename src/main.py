@@ -68,7 +68,18 @@ async def search(ctx, *, query: str):
 
     try:
         service = bot.get_reddit_service()
-        result = await service.search_subreddit(subreddit_name, normalized_query, limit=5)
+        # Fetch 10 results and group them into batches
+        # Use asyncio.wait_for to prevent long-running searches
+        try:
+            result = await asyncio.wait_for(
+                service.search_subreddit(subreddit_name, normalized_query, limit=10),
+                timeout=15.0
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Search for '{normalized_query}' timed out.")
+            await ctx.send("Search timed out. Please try again with a more specific query.")
+            return
+
         posts = result.get('posts', [])
 
         if not posts:
@@ -76,13 +87,18 @@ async def search(ctx, *, query: str):
             await ctx.send("No results found.")
             return
 
-        for post in posts:
-            embed = format_manga_embed(post)
-            await ctx.send(embed=embed)
+        # Discord allows up to 10 embeds per message.
+        # We batch them in groups of 5 to be conservative and avoid massive messages.
+        batch_size = 5
+        for i in range(0, len(posts), batch_size):
+            batch = posts[i:i + batch_size]
+            embeds = [format_manga_embed(post) for post in batch]
+            await ctx.send(embeds=embeds)
 
     except Exception as e:
         logger.error(f"Error during search command: {e}", exc_info=True)
-        await ctx.send(f"An error occurred while searching. Please try again later.")
+        # More specific error handling could be added here
+        await ctx.send("An unexpected error occurred while searching. Please try again later.")
 
 @bot.event
 async def on_command_error(ctx, error):
