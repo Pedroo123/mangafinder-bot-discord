@@ -11,6 +11,7 @@ venv.bak/
 .pytest_cache/
 .vscode/
 .git/
+tests/
 node_modules/
 package-lock.json
 package.json

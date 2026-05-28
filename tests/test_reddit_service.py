@@ -29,6 +29,23 @@ def test_get_best_image_preview(reddit_service):
     # Should unescape &amp;
     assert reddit_service._get_best_image(submission) == "https://example.com/preview.jpg&auth=123"
 
+def test_get_best_image_gallery(reddit_service):
+    submission = MagicMock()
+    submission.is_gallery = True
+    submission.gallery_data = {
+        'items': [{'media_id': 'item1'}]
+    }
+    submission.media_metadata = {
+        'item1': {
+            'status': 'valid',
+            's': {'u': "https://example.com/gallery1.jpg&amp;v=1"}
+        }
+    }
+    submission.preview = {}
+    submission.thumbnail = "default"
+
+    assert reddit_service._get_best_image(submission) == "https://example.com/gallery1.jpg&v=1"
+
 def test_get_best_image_thumbnail_fallback(reddit_service):
     submission = MagicMock()
     submission.url = "https://example.com/post"

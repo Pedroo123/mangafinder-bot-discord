@@ -64,12 +64,17 @@ class RedditService:
                 "posts": posts,
                 "after": last_fullname
             }
+        except asyncprawcore.exceptions.NotFound:
+            logger.warning(f"Subreddit r/{subreddit_name} not found.")
+            raise Exception(f"Subreddit r/{subreddit_name} not found.")
+        except asyncprawcore.exceptions.Forbidden:
+            logger.warning(f"Access to r/{subreddit_name} is forbidden.")
+            raise Exception(f"Access to r/{subreddit_name} is forbidden (private subreddit?).")
         except asyncprawcore.exceptions.PRAWException as e:
             logger.error(f"PRAW error during search: {e}")
             raise Exception(f"Reddit API error: {str(e)}")
         except Exception as e:
             logger.exception(f"Unexpected error during search: {e}")
-            # Re-raise or handle specifically
             raise Exception(f"Reddit search failed: {str(e)}")
 
     def _get_best_image(self, submission: Any) -> Optional[str]:
@@ -77,7 +82,21 @@ class RedditService:
         Attempts to find the best image URL for the submission.
         Handles HTML unescaping for PRAW URLs.
         """
-        # 1. Try preview images (often high res)
+        # 1. Handle Reddit Galleries
+        if getattr(submission, 'is_gallery', False) is True and hasattr(submission, 'media_metadata'):
+            try:
+                gallery_data = getattr(submission, 'gallery_data', {}).get('items', [])
+                if gallery_data:
+                    first_item_id = gallery_data[0]['media_id']
+                    media_item = submission.media_metadata.get(first_item_id)
+                    if media_item and media_item.get('status') == 'valid':
+                        url = media_item.get('s', {}).get('u') or media_item.get('p', [{}])[-1].get('u')
+                        if url:
+                            return html.unescape(url)
+            except (IndexError, KeyError, AttributeError):
+                pass
+
+        # 2. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
                 url = submission.preview['images'][0]['source']['url']
