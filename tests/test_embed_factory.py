@@ -18,7 +18,8 @@ def test_format_manga_embed_full_data():
     assert embed.url == 'https://reddit.com/r/manga/comments/123'
     assert embed.timestamp == datetime.fromtimestamp(1672531200, tz=timezone.utc)
     assert embed.image.url == 'https://example.com/image.jpg'
-    assert embed.footer.text == 'Source: r/manga'
+    # Footer has been removed from implementation
+    assert embed.footer.text is None
 
     # Check for the Date field
     date_field = next(f for f in embed.fields if f.name == "Date")

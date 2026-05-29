@@ -64,3 +64,18 @@ async def test_search_subreddit_calls_praw(reddit_service):
     assert result['posts'][0]['title'] == "Test Post"
     assert result['after'] == "t3_123"
     reddit_service.reddit.subreddit.assert_called_with("manga")
+
+def test_get_best_image_gallery(reddit_service):
+    submission = MagicMock()
+    submission.is_gallery = True
+    submission.gallery_data = {
+        'items': [{'media_id': 'item1'}]
+    }
+    submission.media_metadata = {
+        'item1': {'s': {'u': 'https://preview.redd.it/item1.jpg?width=640&amp;crop=smart&amp;auto=webp&amp;s=123'}}
+    }
+    submission.preview = {}
+    submission.thumbnail = "default"
+
+    # Should unescape &amp;
+    assert reddit_service._get_best_image(submission) == 'https://preview.redd.it/item1.jpg?width=640&crop=smart&auto=webp&s=123'
