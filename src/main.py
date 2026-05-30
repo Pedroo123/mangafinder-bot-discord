@@ -1,6 +1,7 @@
 import discord
 import logging
 import asyncio
+import asyncprawcore
 from discord.ext import commands
 from config import Config
 from service.reddit_service import RedditService
@@ -68,7 +69,11 @@ async def search(ctx, *, query: str):
 
     try:
         service = bot.get_reddit_service()
-        result = await service.search_subreddit(subreddit_name, normalized_query, limit=5)
+        # 15 seconds timeout
+        result = await asyncio.wait_for(
+            service.search_subreddit(subreddit_name, normalized_query, limit=10),
+            timeout=15.0
+        )
         posts = result.get('posts', [])
 
         if not posts:
@@ -76,10 +81,20 @@ async def search(ctx, *, query: str):
             await ctx.send("No results found.")
             return
 
-        for post in posts:
-            embed = format_manga_embed(post)
-            await ctx.send(embed=embed)
+        # Batching results: 5 embeds per message (Discord limit is 10, but 5 is cleaner)
+        batch_size = 5
+        for i in range(0, len(posts), batch_size):
+            batch = posts[i:i + batch_size]
+            embeds = [format_manga_embed(post) for post in batch]
+            await ctx.send(embeds=embeds)
 
+    except asyncio.TimeoutError:
+        logger.error(f"Search timed out for query: {query}")
+        await ctx.send("Search timed out. Reddit might be slow or the query was too broad.")
+    except asyncprawcore.exceptions.NotFound:
+        await ctx.send(f"Subreddit r/{subreddit_name} not found.")
+    except asyncprawcore.exceptions.Forbidden:
+        await ctx.send(f"Access to r/{subreddit_name} is private or forbidden.")
     except Exception as e:
         logger.error(f"Error during search command: {e}", exc_info=True)
         await ctx.send(f"An error occurred while searching. Please try again later.")

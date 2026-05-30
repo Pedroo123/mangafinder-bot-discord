@@ -31,6 +31,7 @@ class RedditService:
             raise ValueError("query is required")
 
         try:
+            # Note: subreddit() is synchronous in asyncpraw
             subreddit = self.reddit.subreddit(subreddit_name)
 
             search_results = subreddit.search(
@@ -45,11 +46,15 @@ class RedditService:
             last_fullname = None
 
             async for submission in search_results:
+                permalink = getattr(submission, 'permalink', None)
+                if permalink and not permalink.startswith('http'):
+                    permalink = f"https://reddit.com{permalink}"
+
                 post = {
                     "id": submission.id,
                     "title": submission.title,
                     "url": submission.url,
-                    "permalink": f"https://reddit.com{submission.permalink}" if submission.permalink else None,
+                    "permalink": permalink,
                     "author": str(submission.author) if submission.author else None,
                     "created_utc": submission.created_utc,
                     "score": submission.score,
@@ -64,20 +69,43 @@ class RedditService:
                 "posts": posts,
                 "after": last_fullname
             }
+        except asyncprawcore.exceptions.NotFound:
+            logger.error(f"Subreddit r/{subreddit_name} not found.")
+            raise
+        except asyncprawcore.exceptions.Forbidden:
+            logger.error(f"Access to r/{subreddit_name} is forbidden.")
+            raise
         except asyncprawcore.exceptions.PRAWException as e:
             logger.error(f"PRAW error during search: {e}")
-            raise Exception(f"Reddit API error: {str(e)}")
+            raise
         except Exception as e:
             logger.exception(f"Unexpected error during search: {e}")
-            # Re-raise or handle specifically
-            raise Exception(f"Reddit search failed: {str(e)}")
+            raise
 
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
         Attempts to find the best image URL for the submission.
-        Handles HTML unescaping for PRAW URLs.
+        Handles galleries, previews, and direct links.
         """
-        # 1. Try preview images (often high res)
+        # 1. Handle Reddit Galleries
+        if getattr(submission, 'is_gallery', False) is True:
+            try:
+                # Prioritize first item in gallery data
+                gallery_data = getattr(submission, 'gallery_data', {})
+                items = gallery_data.get('items', [])
+                if items:
+                    media_id = items[0].get('media_id')
+                    media_metadata = getattr(submission, 'media_metadata', {})
+                    if media_id in media_metadata:
+                        # Extract the best possible URL from metadata
+                        s = media_metadata[media_id].get('s', {})
+                        url = s.get('u') or s.get('gif')
+                        if url:
+                            return html.unescape(url)
+            except Exception as e:
+                logger.debug(f"Error extracting gallery image: {e}")
+
+        # 2. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
                 url = submission.preview['images'][0]['source']['url']
@@ -85,12 +113,12 @@ class RedditService:
             except (IndexError, KeyError):
                 pass
 
-        # 2. If it's a direct image link
+        # 3. If it's a direct image link
         url = getattr(submission, 'url', '')
         if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
-        # 3. Fallback to thumbnail
+        # 4. Fallback to thumbnail
         thumbnail = getattr(submission, 'thumbnail', None)
         if thumbnail and thumbnail not in ('default', 'self', 'nsfw', ''):
             return thumbnail
