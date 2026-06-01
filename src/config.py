@@ -18,7 +18,8 @@ class Config:
             "REDDIT_CLIENT_ID",
             "REDDIT_CLIENT_SECRET",
             "REDDIT_USERNAME",
-            "REDDIT_PASSWORD"
+            "REDDIT_PASSWORD",
+            "REDDIT_USER_AGENT"
         ]
         missing = [var for var in required_vars if not getattr(cls, var)]
         if missing:

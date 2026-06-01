@@ -68,7 +68,11 @@ async def search(ctx, *, query: str):
 
     try:
         service = bot.get_reddit_service()
-        result = await service.search_subreddit(subreddit_name, normalized_query, limit=5)
+        # Use asyncio.wait_for to ensure the command doesn't hang indefinitely
+        result = await asyncio.wait_for(
+            service.search_subreddit(subreddit_name, normalized_query, limit=10),
+            timeout=15.0
+        )
         posts = result.get('posts', [])
 
         if not posts:
@@ -76,13 +80,26 @@ async def search(ctx, *, query: str):
             await ctx.send("No results found.")
             return
 
-        for post in posts:
-            embed = format_manga_embed(post)
-            await ctx.send(embed=embed)
+        # Discord allows up to 10 embeds per message.
+        # We'll send them in batches of 5 to avoid too large messages.
+        for i in range(0, len(posts), 5):
+            batch = posts[i:i+5]
+            embeds = [format_manga_embed(post) for post in batch]
+            await ctx.send(embeds=embeds)
 
+    except asyncio.TimeoutError:
+        logger.warning(f"Search timed out for query: {query}")
+        await ctx.send("The search took too long and timed out. Please try again.")
     except Exception as e:
-        logger.error(f"Error during search command: {e}", exc_info=True)
-        await ctx.send(f"An error occurred while searching. Please try again later.")
+        # Check for specific PRAW exceptions if they are wrapped
+        error_msg = str(e).lower()
+        if "forbidden" in error_msg or "403" in error_msg:
+            await ctx.send(f"I don't have access to r/{subreddit_name}. It might be private.")
+        elif "notfound" in error_msg or "404" in error_msg:
+            await ctx.send(f"The subreddit r/{subreddit_name} was not found.")
+        else:
+            logger.error(f"Error during search command: {e}", exc_info=True)
+            await ctx.send(f"An error occurred while searching. Please try again later.")
 
 @bot.event
 async def on_command_error(ctx, error):
