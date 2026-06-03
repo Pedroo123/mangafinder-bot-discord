@@ -64,20 +64,42 @@ class RedditService:
                 "posts": posts,
                 "after": last_fullname
             }
+        except asyncprawcore.exceptions.NotFound:
+            logger.error(f"Subreddit not found: {subreddit_name}")
+            raise
+        except asyncprawcore.exceptions.Forbidden:
+            logger.error(f"Access forbidden to subreddit: {subreddit_name}")
+            raise
         except asyncprawcore.exceptions.PRAWException as e:
             logger.error(f"PRAW error during search: {e}")
             raise Exception(f"Reddit API error: {str(e)}")
         except Exception as e:
             logger.exception(f"Unexpected error during search: {e}")
-            # Re-raise or handle specifically
             raise Exception(f"Reddit search failed: {str(e)}")
 
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
         Attempts to find the best image URL for the submission.
-        Handles HTML unescaping for PRAW URLs.
+        Handles HTML unescaping for PRAW URLs and supports galleries.
         """
-        # 1. Try preview images (often high res)
+        # 1. Handle Reddit Galleries
+        if getattr(submission, 'is_gallery', False) is True:
+            try:
+                # Gallery data gives us the order of items
+                gallery_items = getattr(submission, 'gallery_data', {}).get('items', [])
+                if gallery_items:
+                    first_item_id = gallery_items[0].get('media_id')
+                    # Media metadata contains the actual image URLs
+                    media = getattr(submission, 'media_metadata', {}).get(first_item_id)
+                    if media and media.get('status') == 'valid':
+                        # Prefer 's' for high-res source
+                        url = media['s'].get('u')
+                        if url:
+                            return html.unescape(url)
+            except Exception as e:
+                logger.debug(f"Failed to extract gallery image: {e}")
+
+        # 2. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
                 url = submission.preview['images'][0]['source']['url']
@@ -85,12 +107,12 @@ class RedditService:
             except (IndexError, KeyError):
                 pass
 
-        # 2. If it's a direct image link
+        # 3. If it's a direct image link
         url = getattr(submission, 'url', '')
         if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
-        # 3. Fallback to thumbnail
+        # 4. Fallback to thumbnail
         thumbnail = getattr(submission, 'thumbnail', None)
         if thumbnail and thumbnail not in ('default', 'self', 'nsfw', ''):
             return thumbnail
