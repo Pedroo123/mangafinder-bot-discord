@@ -1,5 +1,6 @@
-discord.py
-asyncpraw
-python-dotenv
-pytest
-pytest-asyncio
+discord.py==2.4.0
+asyncpraw==7.8.1
+asyncprawcore==2.4.0
+python-dotenv==1.0.1
+pytest==8.3.3
+pytest-asyncio==0.24.0

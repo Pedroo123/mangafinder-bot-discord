@@ -64,3 +64,25 @@ async def test_search_subreddit_calls_praw(reddit_service):
     assert result['posts'][0]['title'] == "Test Post"
     assert result['after'] == "t3_123"
     reddit_service.reddit.subreddit.assert_called_with("manga")
+
+def test_get_best_image_gallery(reddit_service):
+    submission = MagicMock()
+    submission.is_gallery = True
+    submission.gallery_data = {
+        'items': [{'media_id': 'item1'}]
+    }
+    submission.media_metadata = {
+        'item1': {'s': {'u': 'https://example.com/gallery.jpg&amp;auth=abc'}}
+    }
+    submission.preview = {}
+    submission.thumbnail = "default"
+
+    assert reddit_service._get_best_image(submission) == "https://example.com/gallery.jpg&auth=abc"
+
+@pytest.mark.asyncio
+async def test_search_subreddit_bubbles_exceptions(reddit_service):
+    import asyncprawcore
+    reddit_service.reddit.subreddit.return_value.search.side_effect = asyncprawcore.exceptions.NotFound(MagicMock())
+
+    with pytest.raises(asyncprawcore.exceptions.NotFound):
+        await reddit_service.search_subreddit("invalid_sub", "query")
