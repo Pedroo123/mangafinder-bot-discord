@@ -38,6 +38,5 @@ def format_manga_embed(post: dict) -> discord.Embed:
     if image_url and image_url.startswith('http'):
         embed.set_image(url=image_url)
 
-    embed.set_footer(text=f"Source: r/{post.get('subreddit', 'reddit')}")
-
+    # Note: Footer removed to match UI requirement 3 (strictly title, date, image, link)
     return embed
