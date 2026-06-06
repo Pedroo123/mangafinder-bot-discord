@@ -68,7 +68,11 @@ async def search(ctx, *, query: str):
 
     try:
         service = bot.get_reddit_service()
-        result = await service.search_subreddit(subreddit_name, normalized_query, limit=5)
+        # 15-second timeout as per project standards
+        result = await asyncio.wait_for(
+            service.search_subreddit(subreddit_name, normalized_query, limit=10),
+            timeout=15.0
+        )
         posts = result.get('posts', [])
 
         if not posts:
@@ -76,10 +80,16 @@ async def search(ctx, *, query: str):
             await ctx.send("No results found.")
             return
 
-        for post in posts:
-            embed = format_manga_embed(post)
-            await ctx.send(embed=embed)
+        # Group embeds into batches of 5 to minimize spam and follow Discord limits
+        batch_size = 5
+        for i in range(0, len(posts), batch_size):
+            batch = posts[i:i + batch_size]
+            embeds = [format_manga_embed(post) for post in batch]
+            await ctx.send(embeds=embeds)
 
+    except asyncio.TimeoutError:
+        logger.error(f"Search timed out for query: {normalized_query}")
+        await ctx.send("The search timed out. Please try again later.")
     except Exception as e:
         logger.error(f"Error during search command: {e}", exc_info=True)
         await ctx.send(f"An error occurred while searching. Please try again later.")

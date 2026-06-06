@@ -64,6 +64,12 @@ class RedditService:
                 "posts": posts,
                 "after": last_fullname
             }
+        except asyncprawcore.exceptions.NotFound:
+            logger.warning(f"Subreddit r/{subreddit_name} not found.")
+            return {"posts": [], "after": None}
+        except asyncprawcore.exceptions.Forbidden:
+            logger.error(f"Access forbidden to r/{subreddit_name}.")
+            raise Exception(f"Access to r/{subreddit_name} is forbidden.")
         except asyncprawcore.exceptions.PRAWException as e:
             logger.error(f"PRAW error during search: {e}")
             raise Exception(f"Reddit API error: {str(e)}")
@@ -75,9 +81,23 @@ class RedditService:
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
         Attempts to find the best image URL for the submission.
-        Handles HTML unescaping for PRAW URLs.
+        Handles HTML unescaping for PRAW URLs and supports Reddit galleries.
         """
-        # 1. Try preview images (often high res)
+        # 1. Handle Reddit Galleries
+        if getattr(submission, 'is_gallery', False) is True:
+            try:
+                gallery_data = getattr(submission, 'gallery_data', None)
+                media_metadata = getattr(submission, 'media_metadata', None)
+                if gallery_data and media_metadata:
+                    # Get the first item in the gallery
+                    first_item_id = gallery_data['items'][0]['media_id']
+                    # Extract URL from media_metadata
+                    url = media_metadata[first_item_id]['s']['u']
+                    return html.unescape(url)
+            except (KeyError, IndexError, TypeError):
+                pass
+
+        # 2. Try preview images (often high res)
         if hasattr(submission, 'preview') and 'images' in submission.preview:
             try:
                 url = submission.preview['images'][0]['source']['url']
@@ -85,12 +105,12 @@ class RedditService:
             except (IndexError, KeyError):
                 pass
 
-        # 2. If it's a direct image link
+        # 3. If it's a direct image link
         url = getattr(submission, 'url', '')
         if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
             return url
 
-        # 3. Fallback to thumbnail
+        # 4. Fallback to thumbnail
         thumbnail = getattr(submission, 'thumbnail', None)
         if thumbnail and thumbnail not in ('default', 'self', 'nsfw', ''):
             return thumbnail
