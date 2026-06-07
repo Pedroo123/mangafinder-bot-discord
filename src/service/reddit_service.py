@@ -75,25 +75,40 @@ class RedditService:
     def _get_best_image(self, submission: Any) -> Optional[str]:
         """
         Attempts to find the best image URL for the submission.
-        Handles HTML unescaping for PRAW URLs.
+        Handles galleries, previews, and HTML unescaping for PRAW URLs.
         """
-        # 1. Try preview images (often high res)
-        if hasattr(submission, 'preview') and 'images' in submission.preview:
+        # 1. Handle Reddit Galleries
+        if getattr(submission, "is_gallery", False) is True:
             try:
-                url = submission.preview['images'][0]['source']['url']
-                return html.unescape(url)
-            except (IndexError, KeyError):
+                # Try to get the first item from gallery data
+                gallery_data = getattr(submission, "gallery_data", {})
+                items = gallery_data.get("items", [])
+                if items:
+                    first_item_id = items[0].get("media_id")
+                    media_metadata = getattr(submission, "media_metadata", {})
+                    if first_item_id in media_metadata:
+                        url = media_metadata[first_item_id]["s"]["u"]
+                        return html.unescape(url)
+            except (KeyError, IndexError, TypeError):
                 pass
 
-        # 2. If it's a direct image link
-        url = getattr(submission, 'url', '')
-        if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+        # 2. Try preview images (often high res)
+        if hasattr(submission, "preview") and "images" in submission.preview:
+            try:
+                url = submission.preview["images"][0]["source"]["url"]
+                return html.unescape(url)
+            except (IndexError, KeyError, TypeError):
+                pass
+
+        # 3. If it's a direct image link
+        url = getattr(submission, "url", "")
+        if url.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
             return url
 
-        # 3. Fallback to thumbnail
-        thumbnail = getattr(submission, 'thumbnail', None)
-        if thumbnail and thumbnail not in ('default', 'self', 'nsfw', ''):
-            return thumbnail
+        # 4. Fallback to thumbnail
+        thumbnail = getattr(submission, "thumbnail", None)
+        if thumbnail and thumbnail not in ("default", "self", "nsfw", ""):
+            return html.unescape(thumbnail) if thumbnail.startswith("http") else thumbnail
 
         return None
 

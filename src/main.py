@@ -1,6 +1,7 @@
 import discord
 import logging
 import asyncio
+import asyncprawcore
 from discord.ext import commands
 from config import Config
 from service.reddit_service import RedditService
@@ -68,18 +69,33 @@ async def search(ctx, *, query: str):
 
     try:
         service = bot.get_reddit_service()
-        result = await service.search_subreddit(subreddit_name, normalized_query, limit=5)
+        # Add 15-second timeout for the search operation
+        result = await asyncio.wait_for(
+            service.search_subreddit(subreddit_name, normalized_query, limit=10),
+            timeout=15.0
+        )
         posts = result.get('posts', [])
 
         if not posts:
-            logger.info(f"No results found for '{query}'")
+            logger.info(f"No results found for '{normalized_query}' in r/{subreddit_name}")
             await ctx.send("No results found.")
             return
 
-        for post in posts:
-            embed = format_manga_embed(post)
-            await ctx.send(embed=embed)
+        # Batch results to maximize efficiency (max 10 embeds per message, using 5 for better readability)
+        for i in range(0, len(posts), 5):
+            batch = posts[i:i + 5]
+            embeds = [format_manga_embed(post) for post in batch]
+            await ctx.send(embeds=embeds)
 
+    except asyncio.TimeoutError:
+        logger.warning(f"Search timed out for query: {normalized_query}")
+        await ctx.send("Search timed out. Please try a more specific query or try again later.")
+    except asyncprawcore.exceptions.Forbidden:
+        logger.error(f"Access forbidden to subreddit: r/{subreddit_name}")
+        await ctx.send(f"I don't have access to search in r/{subreddit_name}.")
+    except asyncprawcore.exceptions.NotFound:
+        logger.error(f"Subreddit not found: r/{subreddit_name}")
+        await ctx.send(f"The subreddit r/{subreddit_name} does not exist.")
     except Exception as e:
         logger.error(f"Error during search command: {e}", exc_info=True)
         await ctx.send(f"An error occurred while searching. Please try again later.")
