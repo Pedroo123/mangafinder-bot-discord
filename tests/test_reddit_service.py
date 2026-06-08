@@ -37,6 +37,24 @@ def test_get_best_image_thumbnail_fallback(reddit_service):
 
     assert reddit_service._get_best_image(submission) == "https://example.com/thumb.jpg"
 
+def test_get_best_image_gallery(reddit_service):
+    submission = MagicMock()
+    submission.is_gallery = True
+    submission.gallery_data = {
+        'items': [{'media_id': 'abc'}]
+    }
+    submission.media_metadata = {
+        'abc': {
+            's': {'u': "https://preview.redd.it/abc.jpg?width=640&amp;crop=smart&amp;auto=webp&amp;s=123"}
+        }
+    }
+    submission.preview = {}
+    submission.thumbnail = "default"
+
+    # Should unescape &amp;
+    expected = "https://preview.redd.it/abc.jpg?width=640&crop=smart&auto=webp&s=123"
+    assert reddit_service._get_best_image(submission) == expected
+
 @pytest.mark.asyncio
 async def test_search_subreddit_calls_praw(reddit_service):
     # Mocking the async iterator for search

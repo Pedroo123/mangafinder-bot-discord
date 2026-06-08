@@ -68,7 +68,12 @@ async def search(ctx, *, query: str):
 
     try:
         service = bot.get_reddit_service()
-        result = await service.search_subreddit(subreddit_name, normalized_query, limit=5)
+        # Fetch 10 results to give more options
+        # Wrap in timeout to ensure the bot doesn't hang
+        result = await asyncio.wait_for(
+            service.search_subreddit(subreddit_name, normalized_query, limit=10),
+            timeout=15.0
+        )
         posts = result.get('posts', [])
 
         if not posts:
@@ -76,13 +81,27 @@ async def search(ctx, *, query: str):
             await ctx.send("No results found.")
             return
 
-        for post in posts:
-            embed = format_manga_embed(post)
-            await ctx.send(embed=embed)
+        # Batch embeds to avoid hitting Discord's rate limits and keep it clean
+        # Discord allows up to 10 embeds per message, but we'll use 5 for better readability
+        batch_size = 5
+        for i in range(0, len(posts), batch_size):
+            batch = posts[i:i + batch_size]
+            embeds = [format_manga_embed(post) for post in batch]
+            await ctx.send(embeds=embeds)
 
+    except asyncio.TimeoutError:
+        logger.error(f"Timeout searching for '{normalized_query}' in r/{subreddit_name}")
+        await ctx.send("The search took too long. Please try again.")
     except Exception as e:
-        logger.error(f"Error during search command: {e}", exc_info=True)
-        await ctx.send(f"An error occurred while searching. Please try again later.")
+        # Check for specific PRAW exceptions if they were re-raised
+        import asyncprawcore
+        if isinstance(e, asyncprawcore.exceptions.Forbidden):
+            await ctx.send(f"I don't have access to r/{subreddit_name}.")
+        elif isinstance(e, asyncprawcore.exceptions.NotFound):
+            await ctx.send(f"Subreddit r/{subreddit_name} not found.")
+        else:
+            logger.error(f"Error during search command: {e}", exc_info=True)
+            await ctx.send("An error occurred while searching. Please try again later.")
 
 @bot.event
 async def on_command_error(ctx, error):
